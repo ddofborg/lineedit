@@ -1,0 +1,4 @@
+[main]
+port=3000
+city=München
+listen=*
