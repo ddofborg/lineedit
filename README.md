@@ -52,28 +52,28 @@ Command line help
 Examples
 --------
 
-# Change port of some service from 3000 to 5000
+	# Change port of some service from 3000 to 5000
 
     $ ./lineedit.py tests/test1.txt "port=3000" "port=5000"
 
 
-# Add "alias l='ls -la'" to the end of a file if the line is not yet there.
-# File will not be created if it doesn't exists.
+	# Add "alias l='ls -la'" to the end of a file if the line is not yet there.
+	# File will not be created if it doesn't exists.
 
     $ ./lineedit.py tests/test2.txt "alias l='ls -la'" "alias l='ls -la'" -n -p end
 
 
-# Comment out bind-option in a config file.
+	# Comment out bind-option in a config file.
 
     $ ./lineedit.py tests/test3.txt "bind" "# " -f starts -p comment
 
 
-# Remove the line starting with "alias l=" using a regex match.
+	# Remove the line starting with "alias l=" using a regex match.
 
     $ ./lineedit.py tests/test2.txt "^alias l=" "alias l='ls -la'" -p delete -f regex
 
 
-# Allow PostgreSQL to listen to 0.0.0.0/0 for all users.
+	# Allow PostgreSQL to listen to 0.0.0.0/0 for all users.
 
     $ ./lineedit.py tests/test4.txt "host\s+all\s+all\s+127.0.0.1/32\s+md5" "host\tall\tall\t0.0.0.0/0\ttrust" -f regex
 
