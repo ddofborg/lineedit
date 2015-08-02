@@ -8,6 +8,8 @@ Read README.md for more information.
 TODO
 ----
 
+TODO Option to not add a destline if the same line is already in the file.
+
 TODO Option to create a backup of the original file.
 
 TODO Replace using regex backreference.
@@ -65,7 +67,7 @@ def parse_args():
     )
 
     parser.add_argument('file',
-        help='File path which should be added. Should be a textfile.')
+        help='Source file: file path which should be edited (should be a textfile).')
     parser.add_argument('sourceline',
         type=unicode,
         help='Source line: line to search for using one of the method described in -f option.')
@@ -103,9 +105,9 @@ def parse_args():
     parser.add_argument('-v',
         action='store_true',
         help='Output more debug information.')
-    parser.add_argument('-c', '--compact',
-        action='store_false',
-        help='Output only changed parts and not the whole diff of the file.')
+    parser.add_argument('-l', '--long-diff',
+        action='store_true',
+        help='Show whole file with changes, not useful if the source file is long.')
     parser.add_argument('--create',
         action='store_true',
         help='Create the output file if source file does not exists. Useful if you want to append something to a (new) file.')
@@ -213,13 +215,13 @@ def main():
 
 
     if matches_found > 0 or args.n and matches_found == 0:
-        logger.info('Found %s matche(s) in source file. Line starting with `> -` is removed and `> +` is added:', matches_found)
+        logger.info('The result will be as follows, line starting with `> -` is removed and starting with `> +` is added:')
         for line in difflib.ndiff(inputbuffer, outputbuffer):
-            if not args.compact:
-                if line.startswith('+') or line.startswith('-'):
+            if args.long_diff: # Show all lines
+                if not line.startswith('?'):
                     logger.info('> %s',line)
-            elif not line.startswith('?'):
-                logger.info('> %s',line)
+            elif line.startswith('+') or line.startswith('-'): # Show only added/removed lines
+                    logger.info('> %s',line)
 
         if args.y:
             if not os.access(args.file, os.W_OK):
