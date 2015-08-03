@@ -62,8 +62,8 @@ def parse_args():
 
     parser = argparse.ArgumentParser(
         description='LineEdit: A tool to quickly automate config file editing.',
-        epilog='Exit codes are as follows:\n-1 = There was an error.\n0 = There '
-            'was a match and it was replaces.\n 1 = No match was found. Nothing '
+        epilog='Exit codes are as follows:\n-1 = There was an error.\n0 = '
+            'Everything went as intented.\n 1 = No match was found. Nothing '
             'is replaced.',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
@@ -115,7 +115,7 @@ def parse_args():
         help='Output more debug information.')
     parser.add_argument('-l', '--long-diff',
         action='store_true',
-        help='Show whole file with changes, not useful if the source file is '
+        help='Show whole file with changes, useful if the source file is '
             'long.')
     parser.add_argument('--create',
         action='store_true',
