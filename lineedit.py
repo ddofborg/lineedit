@@ -62,7 +62,9 @@ def parse_args():
 
     parser = argparse.ArgumentParser(
         description='LineEdit: A tool to quickly automate config file editing.',
-        epilog='Exit codes are as follows:\n-1 = There was an error.\n0 = There was a match and it was replaces.\n 1 = No match was found. Nothing is replaced.',
+        epilog='Exit codes are as follows:\n-1 = There was an error.\n0 = There '
+            'was a match and it was replaces.\n 1 = No match was found. Nothing '
+            'is replaced.',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 
@@ -70,10 +72,14 @@ def parse_args():
         help='Source file: file path which should be edited (should be a textfile).')
     parser.add_argument('sourceline',
         type=unicode,
-        help='Source line: line to search for using one of the method described in -f option.')
+        help='Source line: line to search for using one of the method described '
+            'in -f option.')
     parser.add_argument('destline',
         type=unicode,
-        help='Destination line: the line which will be added or will replace source line using methods described in -p options. If `-p comment` is used, this string will be the comment characher.')
+        nargs='?',
+        help='Destination line: the line which will be added or will replace '
+            'source line using methods described in -p options. If `-p comment` '
+            'is used, this string will be the comment characher.')
 
 
     parser.add_argument('-f',
@@ -84,13 +90,15 @@ def parse_args():
 
     parser.add_argument('-n',
         action='store_true',
-        help='Do the action only if source line is not found.')
+        help='Add the source line to the file, if the source line is not found. '
+            'Use with `-p end` or `-p begin`.')
 
 
     parser.add_argument('-p',
         choices=['replace','above','below','end','begin','comment','delete'],
         default='replace',
-        help='Destination position: At which position should the destination line be added/replaces.')
+        help='Destination position: At which position should the destination '
+            'line be added/replaces.')
 
 
     parser.add_argument('-m', '--max',
@@ -107,10 +115,12 @@ def parse_args():
         help='Output more debug information.')
     parser.add_argument('-l', '--long-diff',
         action='store_true',
-        help='Show whole file with changes, not useful if the source file is long.')
+        help='Show whole file with changes, not useful if the source file is '
+            'long.')
     parser.add_argument('--create',
         action='store_true',
-        help='Create the output file if source file does not exists. Useful if you want to append something to a (new) file.')
+        help='Create the output file if source file does not exists. Useful '
+            'if you want to append something to a (new) file.')
 
     try:
         args = parser.parse_args()
@@ -128,7 +138,8 @@ def main():
         inputbuffer,lineending = read_lines(args.file)
     except IOError:
         if not args.create:
-            logger.error(u'File `%s` is not found, please check the location. Use `--create` option to continue. Aborting...', args.file)
+            logger.error(u'File `%s` is not found, please check the location. '
+                'Use `--create` option to continue. Aborting...', args.file)
             sys.exit(-1)
         else:
             logger.warning(u'File `%s` will be created if needed, because it is not found.', args.file)
@@ -139,12 +150,24 @@ def main():
         if not args.p in ['begin','end']:
             logger.error('When using `-n` option, the destination line can only be added at the beginning or at the end. Aborting...')
             sys.exit(-1)
+        else:
+            args.destline = args.sourceline
+
+
+    if args.n and args.destline == None:
+        if not (args.p in ['delete'] or args.n):
+            logger.error('Destination line can only be empty when using `-p delete` or `-n` options. Aborting...')
+
+
     if args.p == 'comment':
         if len(args.destline.strip()) == 0:
             logger.error('Comment character cannot be empty.')
             sys.exit(-1)
         elif args.destline not in ['#', '//', ';', '--', '# ', '// ', '; ', '-- ',]:
             logger.warning('You are using `%s` as a comment character. This is a bit unusual.', args.destline)
+    elif args.p == 'delete':
+        args.destline = ''
+
 
     logger.info("Using `%s` matching, destination position is `%s`.", args.f, args.p)
 
@@ -164,6 +187,7 @@ def main():
     logger.debug('Matching regex pattern for source line `%s`.', RE_SOURCE_MATCH.pattern)
 
     # Find source line and do the right action.
+    duplication_found = False
     matches_found = 0
     args.destline = args.destline.replace('\\t', '\t')
     for c,sourceline in enumerate(inputbuffer):
@@ -189,9 +213,15 @@ def main():
                 pass
             else:
                 raise UnsupportedCondition(u'Destination position using `{}` is not supported.' % args.p)
-
         else:
             outputbuffer.append(sourceline)
+
+        # If the destination line is already in the source file and you are not
+        # commenting or deleting, do not add new line.
+        if not args.p in ['comment','delete']:
+            if sourceline.strip() == args.destline.strip():
+                duplication_found = True
+                break
 
 
     if args.max < matches_found:
@@ -199,44 +229,50 @@ def main():
         sys.exit(-1)
 
 
-    if args.n and matches_found > 0:
-        logger.info('`-n` flag is used, but there was a match found. No change needed.')
+    # There is already a destination line in the source file.
+    if duplication_found:
+        logger.info('Destination line is already in the source file. '
+            'No need for changes. Aborting.')
         sys.exit(0)
-    elif args.n and matches_found == 0:
+
+
+    if args.n and matches_found == 0:
         if args.p == 'begin':
             outputbuffer.insert(0,args.destline)
         elif args.p == 'end':
             outputbuffer.append(args.destline)
-    else:
-        # Add a dest line at the end of the buffer if there was match and
-        # position was 'end'
-        if args.p == 'end' and matches_found > 0:
-            outputbuffer.append(args.destline)
+    elif args.p == 'end' and matches_found > 0:
+        outputbuffer.append(args.destline)
 
 
-    if matches_found > 0 or args.n and matches_found == 0:
-        logger.info('The result will be as follows, line starting with `> -` is removed and starting with `> +` is added:')
-        for line in difflib.ndiff(inputbuffer, outputbuffer):
-            if args.long_diff: # Show all lines
-                if not line.startswith('?'):
-                    logger.info('> %s',line)
-            elif line.startswith('+') or line.startswith('-'): # Show only added/removed lines
-                    logger.info('> %s',line)
+    if matches_found > 0 or (args.n and matches_found == 0):
+        changes = list(difflib.ndiff(inputbuffer, outputbuffer))
+        if len([c for c in changes if not c.startswith('  ')]):
+            logger.info('The result will be as follows, line starting with `> -` is removed and starting with `> +` is added:')
+            for line in changes:
+                if args.long_diff: # Show all lines
+                    if not line.startswith('?'):
+                        logger.info('> %s',line)
+                elif line.startswith('+') or line.startswith('-'): # Show only added/removed lines
+                        logger.info('> %s',line)
 
-        if args.y:
-            if not os.access(args.file, os.W_OK):
-                logger.error('Cannot write to `%s`, please make sure you have access.', args.file)
-                sys.exit(-1)
+            if args.y:
+                if not os.access(args.file, os.W_OK):
+                    logger.error('Cannot write to `%s`, please make sure you have access.', args.file)
+                    sys.exit(-1)
 
-            logger.info('Updating `%s` with new edits.', args.file)
+                logger.info('Updating `%s` with new edits.', args.file)
 
-            with codecs.open(args.file,'w','utf-8') as fp:
-                fp.write(lineending.join(outputbuffer))
-            fp.close()
+                with codecs.open(args.file,'w','utf-8') as fp:
+                    fp.write(lineending.join(outputbuffer))
+                fp.close()
+
+            else:
+                logger.warning('No changes written, please use `-y` option update the file. Aborting.')
+                sys.exit(1)
 
         else:
-            logger.warning('No changes written, please use `-y` option update the file. Aborting.')
-            sys.exit(1)
+            logger.info('Not changes found. Aborting.')
 
     else:
         logger.warning('No matches found and nothing is replaced. Aborting.')
